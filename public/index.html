@@ -5,7 +5,21 @@
     <!-- السماح بالتكبير الحر بالإصبع دون أي قيود من المتصفح -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>اتصال آمن ومباشر</title>
+    
     <style>
+        #remote-video:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    background: black;
+}
+
+#remote-video:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    background: black;
+}
         /* إعادة ضبط عامة مرنة */
         * {
             box-sizing: border-box;
@@ -130,6 +144,7 @@
         <button id="toggle-mic" class="btn btn-mute">كتم الصوت</button>
         <button id="toggle-video" class="btn btn-mute">إيقاف الكاميرا</button>
         <button id="end-call" class="btn">إنهاء المكالمة</button>
+        <button id="fullscreen-remote" class="btn">تكبير الطرف الآخر</button>
     </div>
 
 </body>

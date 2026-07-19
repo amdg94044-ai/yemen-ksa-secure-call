@@ -238,3 +238,22 @@ socket.on("user-disconnected", () => {
     statusMessage.innerText = "تم فصل الطرف الآخر";
 
 });
+document.getElementById("fullscreen-remote").addEventListener("click", () => {
+
+    const remoteVideo = document.getElementById("remote-video");
+
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+
+        if (remoteVideo.requestFullscreen) {
+            remoteVideo.requestFullscreen();
+        } else if (remoteVideo.webkitRequestFullscreen) {
+            remoteVideo.webkitRequestFullscreen();
+        } else if (remoteVideo.msRequestFullscreen) {
+            remoteVideo.msRequestFullscreen();
+        }
+
+    }
+
+});

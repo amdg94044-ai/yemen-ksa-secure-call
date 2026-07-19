@@ -1,4 +1,4 @@
-const socket = io('/');
+const socket = io(); // التعديل 1: إزالة السلاش لتفادي مشاكل التوجيه
 const videoGrid = document.getElementById('video-grid');
 const statusMessage = document.getElementById('status-message');
 
@@ -42,7 +42,14 @@ navigator.mediaDevices.getUserMedia({
     document.getElementById('local-video').srcObject = stream;
     statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
 
-    socket.emit('join-room', roomId, socket.id);
+    // التعديل 2: التأكد من اكتمال الاتصال بالخادم قبل إرسال البيانات لتجنب إرسال ID فارغ
+    if (socket.connected) {
+        socket.emit('join-room', roomId, socket.id);
+    } else {
+        socket.on('connect', () => {
+            socket.emit('join-room', roomId, socket.id);
+        });
+    }
 
     socket.on('user-connected', userId => {
         statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";

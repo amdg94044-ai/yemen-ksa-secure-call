@@ -2,25 +2,29 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <!-- 1. تم تعديل الـ Viewport هنا للسماح بالتكبير الحر بالإصبع وتحريك الصفحة دون قيود -->
+    <!-- السماح بالتكبير الحر بالإصبع دون أي قيود من المتصفح -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>اتصال آمن ومباشر</title>
     <style>
+        /* إعادة ضبط عامة مرنة */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+        
+        /* إلغاء الـ height: 100vh والـ overflow: hidden تمامًا لفتح قفل الشاشة */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #121212;
             color: #ffffff;
-            display: flex;
-            flex-direction: column;
+            display: block; /* تغيير من flex إلى block للسماح بالتحرك الطبيعي لأسفل */
             min-height: 100vh;
-            /* 2. تم تغيير الحجم هنا ليكون مرناً ويسمح بالتحريك السلس (Scroll) عند التكبير */
-            overflow: auto; 
+            overflow-y: auto !important; /* إجبار المتصفح على تفعيل التمرير العمودي */
+            overflow-x: auto !important; /* إجبار المتصفح على تفعيل التمرير الأفقي عند التكبير */
+            -webkit-overflow-scrolling: touch; /* تحسين سلاسة التحريك على أجهزة آيفون وأندرويد */
         }
+
         header {
             background-color: #1f1f1f;
             padding: 15px;
@@ -28,81 +32,82 @@
             font-size: 1.2rem;
             font-weight: bold;
             border-bottom: 2px solid #292929;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            position: sticky; /* يبقى في الأعلى أثناء التحريك دون أن يحجب المحتوى */
+            top: 0;
+            z-index: 100;
         }
+
+        #status-message {
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            margin: 15px auto;
+            width: fit-content;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid #333;
+        }
+
+        /* تحويل شبكة الفيديو إلى حاوية مرنة تترتب عموديًا على الجوال لمنع التداخل */
         #video-grid {
-            flex: 1;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
-            padding: 20px;
-            background-color: #141414;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            /* يسمح بالتمرير الداخلي لعناصر الفيديو إذا تمددت */
-            overflow: visible; 
+            gap: 20px;
+            padding: 10px 20px;
+            width: 100%;
         }
+
+        /* تنسيق الفيديو ليكون مرنًا وقابلًا للتكبير دون الخروج عن السيطرة */
         video {
             width: 100%;
-            /* 3. جعل الارتفاع تلقائياً لمنع تشوه أبعاد الفيديو أثناء تحريك وتكبير الصفحة */
-            height: auto;
-            max-height: 70vh; 
-            object-fit: cover;
+            max-width: 500px; /* أقصى عرض مريح للشاشة */
+            height: auto; /* ترك الارتفاع يتحدد تلقائيًا لمنع التمدد المربك */
+            aspect-ratio: 4 / 3; /* تثبيت أبعاد البث الاقتصادية */
             background-color: #242424;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-            transform: scaleX(-1); /* ميزة المرآة للكاميرا المحلية */
+            transform: scaleX(-1); 
         }
+
         #remote-video {
-            transform: none; /* الفيديو القادم من الطرف الآخر لا يحتاج ميزة المرآة */
+            transform: none; 
         }
+
+        /* أزرار التحكم متموضعة بشكل طبيعي في الأسفل وتتحرك مع تمرير الشاشة */
         #controls {
             background-color: #1f1f1f;
-            padding: 20px;
+            padding: 25px 20px;
             display: flex;
             justify-content: center;
+            flex-wrap: wrap; /* السماح للأزرار بالنزول لسطر جديد إذا كبّرت الشاشة */
             gap: 15px;
             border-top: 2px solid #292929;
-            /* يضمن بقاء أزرار التحكم في أسفل الصفحة بشكل مرن */
-            position: relative;
+            margin-top: 30px;
             width: 100%;
         }
+
         .btn {
             background-color: #e50914;
             color: white;
             border: none;
-            padding: 12px 20px;
-            font-size: 0.95rem;
+            padding: 12px 24px;
+            font-size: 1rem;
             border-radius: 30px;
             cursor: pointer;
             font-weight: bold;
             transition: background 0.3s ease;
         }
+
         .btn:hover {
             background-color: #b81d24;
         }
+
         .btn-mute {
             background-color: #333333;
         }
-        .btn-mute:hover {
-            background-color: #444444;
-        }
-        #status-message {
-            position: static; /* تم التعديل لمنعه من التداخل مع الفيديو أثناء التكبير على الجوال */
-            text-align: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            margin: 10px auto 0 auto;
-            width: fit-content;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            border: 1px solid #333;
-            z-index: 10;
-        }
     </style>
-    <!-- استدعاء مكتبة Socket.io للربط مع السيرفر -->
     <script src="/socket.io/socket.io.js" defer></script>
-    <!-- استدعاء ملف التحكم البرمجي الفعلي للاتصال -->
     <script src="script.js" defer></script>
 </head>
 <body>
@@ -112,9 +117,7 @@
     <div id="status-message">جاري تجهيز الاتصال المحلي...</div>
 
     <div id="video-grid">
-        <!-- الفيديو الخاص بك -->
         <video id="local-video" autoplay playsinline muted></video>
-        <!-- فيديو الطرف الآخر سيتم إنشاؤه ديناميكياً هنا عند الاتصال -->
     </div>
 
     <div id="controls">

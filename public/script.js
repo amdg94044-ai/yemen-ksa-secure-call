@@ -2,12 +2,17 @@ const socket = io('/');
 const videoGrid = document.getElementById('video-grid');
 const statusMessage = document.getElementById('status-message');
 
-// إعدادات خوادم STUN المحدثة للمساعدة في ربط الأجهزة خلف جدران الحماية
+// 1. إضافة خوادم STUN وخادم TURN المخصص لتخطي الحجب والشبكات المغلقة
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
+        { urls: 'stun:stun2.l.google.com:19302' },
+        {
+            urls: 'turn:your-turn-server.com:3478', // ضع رابط خادم TURN الخاص بك هنا
+            username: 'your_username',             // اسم المستخدم للخادم
+            password: 'your_password'              // الرقم السري للخادم
+        }
     ]
 };
 
@@ -15,7 +20,6 @@ let localStream;
 let peerConnection;
 let roomId = new URLSearchParams(window.location.search).get('room');
 
-// 1. التحقق من وجود الغرفة في الرابط أو إنشاء واحدة جديدة فوراً
 if (!roomId) {
     roomId = Math.random().toString(36).substring(2, 9);
     window.history.replaceState({}, '', `?room=${roomId}`);
@@ -24,13 +28,13 @@ if (!roomId) {
 // 2. تشغيل الكاميرا والميكروفون بإعدادات اقتصادية مخصصة للإنترنت الضعيف
 navigator.mediaDevices.getUserMedia({ 
     audio: {
-        echoCancellation: true, // إلغاء الصدى
-        noiseSuppression: true  // عزل الضوضاء وتحسين جودة الصوت
+        echoCancellation: true,
+        noiseSuppression: true  
     }, 
     video: {
-        width: { ideal: 320, max: 480 },   // تقليل عرض الفيديو لتوفير البيانات
-        height: { ideal: 240, max: 360 },  // تقليل ارتفاع الفيديو
-        frameRate: { max: 15 }             // تحديد الإطارات بـ 15 لتفادي تجمّد الصورة
+        width: { ideal: 320, max: 480 },   
+        height: { ideal: 240, max: 360 },  
+        frameRate: { max: 15 }             
     } 
 })
 .then(stream => {
@@ -38,10 +42,8 @@ navigator.mediaDevices.getUserMedia({
     document.getElementById('local-video').srcObject = stream;
     statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
 
-    // إبلاغ السيرفر بالانضمام للغرفة
     socket.emit('join-room', roomId, socket.id);
 
-    // عندما ينضم مستخدم آخر، نبدأ بإنشاء الاتصال معه
     socket.on('user-connected', userId => {
         statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
         initiateCall(userId);
@@ -52,7 +54,6 @@ navigator.mediaDevices.getUserMedia({
     statusMessage.innerText = "فشل الوصول للكاميرا أو المايكروفون. يرجى إعطاء الصلاحية.";
 });
 
-// 3. معالجة إشارات WebRTC القادمة من السيرفر لتمرير العروض والاتفاق
 socket.on('signal', async (data) => {
     if (!peerConnection) createPeerConnection(data.from);
 
@@ -72,7 +73,6 @@ socket.on('signal', async (data) => {
     }
 });
 
-// 4. دالة بدء المكالمة وإرسال العرض (Offer)
 async function initiateCall(userId) {
     createPeerConnection(userId);
     const offer = await peerConnection.createOffer();
@@ -80,14 +80,12 @@ async function initiateCall(userId) {
     socket.emit('signal', { to: userId, sdp: peerConnection.localDescription });
 }
 
-// 5. إنشاء اتصال الـ Peer وتجهيز القنوات
+// 3. إنشاء اتصال الـ Peer وتجهيز القنوات ومراقبة جودة الشبكة
 function createPeerConnection(userId) {
     peerConnection = new RTCPeerConnection(configuration);
 
-    // إضافة المسارات الصوتية والمرئية المحلية للاتصال
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    // استقبال الفيديو القادم من الطرف الآخر وعرضه
     peerConnection.ontrack = (event) => {
         let remoteVideo = document.getElementById('remote-video');
         if (!remoteVideo) {
@@ -101,15 +99,41 @@ function createPeerConnection(userId) {
         statusMessage.innerText = "🔒 اتصال مباشر مشفر ونشط الآن";
     };
 
-    // إرسال مرشحي الحماية (ICE Candidates) عبر السيرفر للطرف الآخر
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
             socket.emit('signal', { to: userId, ice: event.candidate });
         }
     };
+
+    // مراقبة حالة الاتصال لتفعيل خفض الجودة التلقائي (Adaptive Bitrate) عند نجاح الربط
+    peerConnection.oniceconnectionstatechange = () => {
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+            applyAdaptiveBitrate(peerConnection);
+        }
+    };
 }
 
-// 6. أزرار التحكم في الواجهة (كتم الصوت، إيقاف الفيديو، الإنهاء)
+// 4. دالة التحكم في الـ Bitrate لمنع تقطع الفيديو والتحول التلقائي عند ضعف الإنترنت
+function applyAdaptiveBitrate(pc) {
+    const senders = pc.getSenders();
+    const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+
+    if (videoSender) {
+        const parameters = videoSender.getParameters();
+        if (!parameters.encodings) {
+            parameters.encodings = [{}];
+        }
+        
+        // تحديد سقف البث بـ 300kbps كحد أقصى ليتناسب مع سرعات اليمن وضمان استمرار الصوت
+        parameters.encodings[0].maxBitrate = 300000; 
+        parameters.encodings[0].scaleResolutionDownBy = 1.5; // السماح بخفض الدقة تلقائياً عند هبوط الإشارة
+
+        videoSender.setParameters(parameters)
+            .then(() => console.log("✅ تم تفعيل Adaptive Bitrate وتحديد سقف الاستهلاك بنجاح."))
+            .catch(err => console.error("⚠️ فشل ضبط إعدادات الـ Bitrate ديناميكياً:", err));
+    }
+}
+
 document.getElementById('toggle-mic').addEventListener('click', (e) => {
     const audioTrack = localStream.getAudioTracks()[0];
     audioTrack.enabled = !audioTrack.enabled;

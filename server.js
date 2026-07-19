@@ -1,6 +1,8 @@
 const express = require('express');
 const app = express();
+
 const server = require('http').createServer(app);
+
 const io = require('socket.io')(server, {
     cors: {
         origin: "*",
@@ -8,44 +10,54 @@ const io = require('socket.io')(server, {
     }
 });
 
-// تشغيل ملفات الواجهة الأمامية من مجلد public
+// تشغيل ملفات الموقع
 app.use(express.static('public'));
 
-// إدارة غرف الاتصال وتبادل الإشارات
 io.on('connection', (socket) => {
-    
-    // عند دخول مستخدم إلى غرفة معينة
-    socket.on('join-room', (roomId, userId) => {
+
+    console.log("✅ مستخدم متصل:", socket.id);
+
+    // دخول الغرفة
+    socket.on('join-room', (roomId) => {
+
         socket.join(roomId);
-        // إعلام المستخدمين الآخرين في نفس الغرفة بانضمام مستخدم جديد
-        socket.to(roomId).emit('user-connected', userId);
-        
-        // ربط معرف المستخدم بالغرفة لتسهيل قطع الاتصال
         socket.roomId = roomId;
-        socket.userId = userId;
+
+        console.log(`${socket.id} joined room ${roomId}`);
+
+        // إبلاغ الموجودين بالغرفة
+        socket.to(roomId).emit('user-connected', socket.id);
+
     });
 
-    // التعديل الهام: تمرير إشارات WebRTC بين الطرفين لتفعيل الكاميرا والصوت
+    // تمرير إشارات WebRTC
     socket.on('signal', (data) => {
-        if (data.to) {
-            io.to(data.to).emit('signal', {
-                from: socket.id,
-                sdp: data.sdp,
-                ice: data.ice
-            });
-        }
+
+        if (!data.to) return;
+
+        io.to(data.to).emit('signal', {
+            from: socket.id,
+            sdp: data.sdp,
+            ice: data.ice
+        });
+
     });
 
-    // معالجة خروج أو قطع اتصال أحد الأطراف
+    // قطع الاتصال
     socket.on('disconnect', () => {
-        if (socket.roomId && socket.userId) {
-            socket.to(socket.roomId).emit('user-disconnected', socket.userId);
+
+        console.log("❌ مستخدم خرج:", socket.id);
+
+        if (socket.roomId) {
+            socket.to(socket.roomId).emit('user-disconnected', socket.id);
         }
+
     });
+
 });
 
-// تحديد منفذ التشغيل المتوافق مع منصة Render
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اتصال آمن ومباشر</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        header {
+            background-color: #1f1f1f;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-bottom: 2px solid #292929;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #video-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background-color: #141414;
+            align-items: center;
+            justify-content: center;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background-color: #242424;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            transform: scaleX(-1); /* ميزة المرآة للكاميرا المحلية */
+        }
+        #remote-video {
+            transform: none; /* الفيديو القادم من الطرف الآخر لا يحتاج ميزة المرآة */
+        }
+        #controls {
+            background-color: #1f1f1f;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            border-top: 2px solid #292929;
+        }
+        .btn {
+            background-color: #e50914;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #b81d24;
+        }
+        .btn-mute {
+            background-color: #333333;
+        }
+        .btn-mute:hover {
+            background-color: #444444;
+        }
+        #status-message {
+            position: absolute;
+            top: 75px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid #333;
+            z-index: 10;
+        }
+    </style>
+    <!-- استدعاء مكتبة Socket.io للربط مع السيرفر -->
+    <script src="/socket.io/socket.io.js" defer></script>
+    <!-- استدعاء ملف التحكم البرمجي الفعلي للاتصال -->
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <header>🔒 اتصال مباشر آمن ومستقل</header>
+    
+    <div id="status-message">جاري تجهيز الاتصال المحلي...</div>
+
+    <div id="video-grid">
+        <!-- الفيديو الخاص بك -->
+        <video id="local-video" autoplay playsinline muted></video>
+        <!-- فيديو الطرف الآخر سيتم إنشاؤه ديناميكياً هنا عند الاتصال -->
+    </div>
+
+    <div id="controls">
+        <button id="toggle-mic" class="btn btn-mute">كتم الصوت</button>
+        <button id="toggle-video" class="btn btn-mute">إيقاف الكاميرا</button>
+        <button id="end-call" class="btn">إنهاء المكالمة</button>
+    </div>
+
+</body>
+</html>

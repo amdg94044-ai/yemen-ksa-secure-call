@@ -67,10 +67,15 @@ navigator.mediaDevices.getUserMedia({
         });
     }
 
-    socket.on('user-connected', userId => {
-        statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
-        initiateCall(userId);
-    });
+    socket.on("user-connected", userId => {
+
+    if (peerConnection) return;
+
+    statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
+
+    initiateCall(userId);
+
+});
 })
 .catch(error => {
     console.error('خطأ في الوصول للكاميرا/الميكروفون:', error);
@@ -109,16 +114,42 @@ socket.on('signal', async (data) => {
 });
 
 async function initiateCall(userId) {
+
+    if (peerConnection) return;
+
     createPeerConnection(userId);
-    const offer = await peerConnection.createOffer();
+
+    const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+    });
+
     await peerConnection.setLocalDescription(offer);
-    socket.emit('signal', { to: userId, sdp: peerConnection.localDescription });
+
+    socket.emit("signal", {
+        to: userId,
+        sdp: peerConnection.localDescription
+    });
+
 }
 
 function createPeerConnection(userId) {
+
+    if (peerConnection &&
+        peerConnection.connectionState !== "closed") {
+        return;
+    }
+
     peerConnection = new RTCPeerConnection(configuration);
 
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    if (!localStream) {
+        console.error("Local stream غير جاهز");
+        return;
+    }
+
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
 
     peerConnection.ontrack = (event) => {
         const remoteVideo = document.getElementById('remote-video');
@@ -177,5 +208,33 @@ document.getElementById('toggle-video').addEventListener('click', (e) => {
 });
 
 document.getElementById('end-call').addEventListener('click', () => {
-    window.location.href = '/';
+
+    if (peerConnection) {
+        peerConnection.close();
+    }
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+
+    socket.disconnect();
+
+    window.location.href = "/";
+});
+
+socket.on("user-disconnected", () => {
+
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    const remoteVideo = document.getElementById("remote-video");
+
+    if (remoteVideo) {
+        remoteVideo.srcObject = null;
+    }
+
+    statusMessage.innerText = "تم فصل الطرف الآخر";
+
 });

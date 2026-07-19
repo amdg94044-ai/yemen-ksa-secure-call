@@ -2,11 +2,12 @@ const socket = io('/');
 const videoGrid = document.getElementById('video-grid');
 const statusMessage = document.getElementById('status-message');
 
-// إعدادات خوادم STUN المجانية من جوجل للمساعدة في ربط الأجهزة خلف جدران الحماية
+// إعدادات خوادم STUN المحدثة للمساعدة في ربط الأجهزة خلف جدران الحماية
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
     ]
 };
 
@@ -20,26 +21,36 @@ if (!roomId) {
     window.history.replaceState({}, '', `?room=${roomId}`);
 }
 
-// 2. تشغيل الكاميرا والميكروفون للمستخدم الحالي
-navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(stream => {
-        localStream = stream;
-        document.getElementById('local-video').srcObject = stream;
-        statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
+// 2. تشغيل الكاميرا والميكروفون بإعدادات اقتصادية مخصصة للإنترنت الضعيف
+navigator.mediaDevices.getUserMedia({ 
+    audio: {
+        echoCancellation: true, // إلغاء الصدى
+        noiseSuppression: true  // عزل الضوضاء وتحسين جودة الصوت
+    }, 
+    video: {
+        width: { ideal: 320, max: 480 },   // تقليل عرض الفيديو لتوفير البيانات
+        height: { ideal: 240, max: 360 },  // تقليل ارتفاع الفيديو
+        frameRate: { max: 15 }             // تحديد الإطارات بـ 15 لتفادي تجمّد الصورة
+    } 
+})
+.then(stream => {
+    localStream = stream;
+    document.getElementById('local-video').srcObject = stream;
+    statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
 
-        // إبلاغ السيرفر بالانضمام للغرفة
-        socket.emit('join-room', roomId, socket.id);
+    // إبلاغ السيرفر بالانضمام للغرفة
+    socket.emit('join-room', roomId, socket.id);
 
-        // عندما ينضم مستخدم آخر، نبدأ بإنشاء الاتصال معه
-        socket.on('user-connected', userId => {
-            statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
-            initiateCall(userId);
-        });
-    })
-    .catch(error => {
-        console.error('خطأ في الوصول للكاميرا/الميكروفون:', error);
-        statusMessage.innerText = "فشل الوصول للكاميرا أو المايكروفون. يرجى إعطاء الصلاحية.";
+    // عندما ينضم مستخدم آخر، نبدأ بإنشاء الاتصال معه
+    socket.on('user-connected', userId => {
+        statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
+        initiateCall(userId);
     });
+})
+.catch(error => {
+    console.error('خطأ في الوصول للكاميرا/الميكروفون:', error);
+    statusMessage.innerText = "فشل الوصول للكاميرا أو المايكروفون. يرجى إعطاء الصلاحية.";
+});
 
 // 3. معالجة إشارات WebRTC القادمة من السيرفر لتمرير العروض والاتفاق
 socket.on('signal', async (data) => {

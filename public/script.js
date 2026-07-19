@@ -86,17 +86,15 @@ function createPeerConnection(userId) {
 
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
+    // التعديل الرئيسي: ربط بث الطرف الآخر بالعنصر الثابت الموجود في الـ HTML
     peerConnection.ontrack = (event) => {
-        let remoteVideo = document.getElementById('remote-video');
-        if (!remoteVideo) {
-            remoteVideo = document.createElement('video');
-            remoteVideo.id = 'remote-video';
-            remoteVideo.autoplay = true;
-            remoteVideo.playsInline = true;
-            videoGrid.appendChild(remoteVideo);
+        const remoteVideo = document.getElementById('remote-video');
+        if (remoteVideo) {
+            remoteVideo.srcObject = event.streams[0];
+            statusMessage.innerText = "🔒 اتصال مباشر مشفر ونشط الآن";
+        } else {
+            console.error("لم يتم العثور على عنصر remote-video في الـ HTML");
         }
-        remoteVideo.srcObject = event.streams[0];
-        statusMessage.innerText = "🔒 اتصال مباشر مشفر ونشط الآن";
     };
 
     peerConnection.onicecandidate = (event) => {

@@ -6,30 +6,38 @@ const statusMessage = document.getElementById('status-message');
 // 1. استخدام خوادم Metered الاحترافية لضمان تجاوز الحجب والاتصال المباشر
 const configuration = {
     iceServers: [
-        {
-            urls: "stun:stun.relay.metered.ca:80",
-        },
+        // STUN - المحاولة الأولى (اتصال مباشر)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
+
+        // TURN - يستخدم فقط إذا فشل الاتصال المباشر
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "135fb5bb6c9f89ff89f0943b",
-            credential: "tfxTmux1XoagEtol",
+            credential: "tfxTmux1XoagEtol"
         },
         {
             urls: "turn:global.relay.metered.ca:80?transport=tcp",
             username: "135fb5bb6c9f89ff89f0943b",
-            credential: "tfxTmux1XoagEtol",
+            credential: "tfxTmux1XoagEtol"
         },
         {
             urls: "turn:global.relay.metered.ca:443",
             username: "135fb5bb6c9f89ff89f0943b",
-            credential: "tfxTmux1XoagEtol",
+            credential: "tfxTmux1XoagEtol"
         },
         {
             urls: "turns:global.relay.metered.ca:443?transport=tcp",
             username: "135fb5bb6c9f89ff89f0943b",
-            credential: "tfxTmux1XoagEtol",
-        },
-    ]
+            credential: "tfxTmux1XoagEtol"
+        }
+    ],
+
+    // يسمح للمتصفح باختيار أفضل مسار تلقائيًا
+    iceTransportPolicy: "all"
 };
 
 let localStream;

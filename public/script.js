@@ -3,11 +3,32 @@ const videoGrid = document.getElementById('video-grid');
 const statusMessage = document.getElementById('status-message');
 
 // 1. استخدام خوادم STUN من جوجل فقط (تم إزالة خادم TURN الوهمي لأنه يسبب تعليق الاتصال)
+// 1. استخدام خوادم Metered الاحترافية لضمان تجاوز الحجب والاتصال المباشر
 const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
+        {
+            urls: "stun:stun.relay.metered.ca:80",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "135fb5bb6c9f89ff89f0943b",
+            credential: "tfxTmux1XoagEtol",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: "135fb5bb6c9f89ff89f0943b",
+            credential: "tfxTmux1XoagEtol",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:443",
+            username: "135fb5bb6c9f89ff89f0943b",
+            credential: "tfxTmux1XoagEtol",
+        },
+        {
+            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+            username: "135fb5bb6c9f89ff89f0943b",
+            credential: "tfxTmux1XoagEtol",
+        },
     ]
 };
 

@@ -1,31 +1,27 @@
-const socket = io(); // التعديل 1: إزالة السلاش لتفادي مشاكل التوجيه
+const socket = io();
 const videoGrid = document.getElementById('video-grid');
 const statusMessage = document.getElementById('status-message');
 
-// 1. إضافة خوادم STUN وخادم TURN المخصص لتخطي الحجب والشبكات المغلقة
+// 1. استخدام خوادم STUN من جوجل فقط (تم إزالة خادم TURN الوهمي لأنه يسبب تعليق الاتصال)
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        {
-            urls: 'turn:your-turn-server.com:3478', // ضع رابط خادم TURN الخاص بك هنا
-            username: 'your_username',             // اسم المستخدم للخادم
-            password: 'your_password'              // الرقم السري للخادم
-        }
+        { urls: 'stun:stun2.l.google.com:19302' }
     ]
 };
 
 let localStream;
 let peerConnection;
 let roomId = new URLSearchParams(window.location.search).get('room');
+let iceCandidatesQueue = []; // طابور لحفظ الإشارات التي تصل مبكراً
 
 if (!roomId) {
     roomId = Math.random().toString(36).substring(2, 9);
     window.history.replaceState({}, '', `?room=${roomId}`);
 }
 
-// 2. تشغيل الكاميرا والميكروفون بإعدادات اقتصادية مخصصة للإنترنت الضعيف
+// 2. تشغيل الكاميرا والميكروفون
 navigator.mediaDevices.getUserMedia({ 
     audio: {
         echoCancellation: true,
@@ -42,7 +38,6 @@ navigator.mediaDevices.getUserMedia({
     document.getElementById('local-video').srcObject = stream;
     statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
 
-    // التعديل 2: التأكد من اكتمال الاتصال بالخادم قبل إرسال البيانات لتجنب إرسال ID فارغ
     if (socket.connected) {
         socket.emit('join-room', roomId, socket.id);
     } else {
@@ -61,21 +56,33 @@ navigator.mediaDevices.getUserMedia({
     statusMessage.innerText = "فشل الوصول للكاميرا أو المايكروفون. يرجى إعطاء الصلاحية.";
 });
 
+// 3. معالجة الإشارات وإصلاح مشكلة "سباق الإشارات"
 socket.on('signal', async (data) => {
     if (!peerConnection) createPeerConnection(data.from);
 
     if (data.sdp) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        
+        // تفريغ طابور الإشارات المعلقة بمجرد جاهزية الاتصال
+        while(iceCandidatesQueue.length > 0) {
+            await peerConnection.addIceCandidate(iceCandidatesQueue.shift());
+        }
+
         if (data.sdp.type === 'offer') {
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('signal', { to: data.from, sdp: peerConnection.localDescription });
         }
     } else if (data.ice) {
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(data.ice));
-        } catch (e) {
-            console.error("خطأ في إضافة ICE candidate", e);
+        if (peerConnection.remoteDescription) {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.ice));
+            } catch (e) {
+                console.error("خطأ في إضافة ICE candidate", e);
+            }
+        } else {
+            // إذا وصلت الإشارة قبل جاهزية الاتصال، ضعها في الطابور
+            iceCandidatesQueue.push(new RTCIceCandidate(data.ice));
         }
     }
 });
@@ -87,20 +94,16 @@ async function initiateCall(userId) {
     socket.emit('signal', { to: userId, sdp: peerConnection.localDescription });
 }
 
-// 3. إنشاء اتصال الـ Peer وتجهيز القنوات ومراقبة جودة الشبكة
 function createPeerConnection(userId) {
     peerConnection = new RTCPeerConnection(configuration);
 
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    // التعديل الرئيسي: ربط بث الطرف الآخر بالعنصر الثابت الموجود في الـ HTML
     peerConnection.ontrack = (event) => {
         const remoteVideo = document.getElementById('remote-video');
         if (remoteVideo) {
             remoteVideo.srcObject = event.streams[0];
             statusMessage.innerText = "🔒 اتصال مباشر مشفر ونشط الآن";
-        } else {
-            console.error("لم يتم العثور على عنصر remote-video في الـ HTML");
         }
     };
 
@@ -110,15 +113,15 @@ function createPeerConnection(userId) {
         }
     };
 
-    // مراقبة حالة الاتصال لتفعيل خفض الجودة التلقائي (Adaptive Bitrate) عند نجاح الربط
     peerConnection.oniceconnectionstatechange = () => {
         if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
             applyAdaptiveBitrate(peerConnection);
+        } else if (peerConnection.iceConnectionState === 'failed') {
+            statusMessage.innerText = "⚠️ فشل الاتصال، الشبكة قد تكون مقيدة.";
         }
     };
 }
 
-// 4. دالة التحكم في الـ Bitrate لمنع تقطع الفيديو والتحول التلقائي عند ضعف الإنترنت
 function applyAdaptiveBitrate(pc) {
     const senders = pc.getSenders();
     const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
@@ -129,13 +132,12 @@ function applyAdaptiveBitrate(pc) {
             parameters.encodings = [{}];
         }
         
-        // تحديد سقف البث بـ 300kbps كحد أقصى ليتناسب مع سرعات اليمن وضمان استمرار الصوت
         parameters.encodings[0].maxBitrate = 300000; 
-        parameters.encodings[0].scaleResolutionDownBy = 1.5; // السماح بخفض الدقة تلقائياً عند هبوط الإشارة
+        parameters.encodings[0].scaleResolutionDownBy = 1.5; 
 
         videoSender.setParameters(parameters)
-            .then(() => console.log("✅ تم تفعيل Adaptive Bitrate وتحديد سقف الاستهلاك بنجاح."))
-            .catch(err => console.error("⚠️ فشل ضبط إعدادات الـ Bitrate ديناميكياً:", err));
+            .then(() => console.log("✅ تم تفعيل Adaptive Bitrate"))
+            .catch(err => console.error("⚠️ فشل ضبط الـ Bitrate:", err));
     }
 }
 

@@ -13,7 +13,7 @@ const configuration = {
         { urls: "stun:stun3.l.google.com:19302" },
         { urls: "stun:stun4.l.google.com:19302" },
 
-        // TURN - يستخدم فقط إذا فشل الاتصال المباشر
+        // Metered TURN (الاحتياطي الأول)
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "135fb5bb6c9f89ff89f0943b",
@@ -33,6 +33,13 @@ const configuration = {
             urls: "turns:global.relay.metered.ca:443?transport=tcp",
             username: "135fb5bb6c9f89ff89f0943b",
             credential: "tfxTmux1XoagEtol"
+        },
+
+        // ExpressTURN (احتياطي أخير)
+        {
+            urls: "turn:free.expressturn.com:3478",
+            username: "00000000209991425",
+            credential: "Hx3Op5nHLhpTUEOu"
         }
     ],
 
@@ -75,7 +82,9 @@ navigator.mediaDevices.getUserMedia({
         });
     }
 
-    socket.on("user-connected", userId => {
+    socket.off("user-connected");
+
+socket.on("user-connected", (userId) => {
 
     if (peerConnection) return;
 
@@ -160,12 +169,19 @@ function createPeerConnection(userId) {
     });
 
     peerConnection.ontrack = (event) => {
-        const remoteVideo = document.getElementById('remote-video');
-        if (remoteVideo) {
-            remoteVideo.srcObject = event.streams[0];
-            statusMessage.innerText = "🔒 اتصال مباشر مشفر ونشط الآن";
-        }
-    };
+
+    const remoteVideo = document.getElementById("remote-video");
+
+    remoteVideo.autoplay = true;
+    remoteVideo.playsInline = true;
+    remoteVideo.srcObject = event.streams[0];
+
+    remoteVideo.play().catch(err => {
+    console.log("Play Error:", err);
+});
+
+    statusMessage.innerText = "🔒 اتصال مباشر مشفر ونشط الآن";
+};
 
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
@@ -174,14 +190,41 @@ function createPeerConnection(userId) {
     };
 
     peerConnection.oniceconnectionstatechange = () => {
-        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
-            applyAdaptiveBitrate(peerConnection);
-        } else if (peerConnection.iceConnectionState === 'failed') {
-            statusMessage.innerText = "⚠️ فشل الاتصال، الشبكة قد تكون مقيدة.";
-        }
-    };
-}
 
+    console.log("ICE State:", peerConnection.iceConnectionState);
+
+    switch (peerConnection.iceConnectionState) {
+
+        case "checking":
+            statusMessage.innerText = "🔍 جاري البحث عن أفضل مسار...";
+            break;
+
+        case "connected":
+        case "completed":
+            statusMessage.innerText = "✅ تم الاتصال";
+            applyAdaptiveBitrate(peerConnection);
+            break;
+
+        case "disconnected":
+            statusMessage.innerText = "⚠️ انقطع الاتصال... جاري إعادة المحاولة";
+            break;
+
+        case "failed":
+            statusMessage.innerText = "🔄 إعادة محاولة الاتصال...";
+
+            if (typeof peerConnection.restartIce === "function") {
+                peerConnection.restartIce();
+            }
+            break;
+
+        case "closed":
+            statusMessage.innerText = "تم إنهاء الاتصال";
+            break;
+    }
+
+};   // نهاية oniceconnectionstatechange
+
+}    // نهاية createPeerConnection
 function applyAdaptiveBitrate(pc) {
     const senders = pc.getSenders();
     const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');

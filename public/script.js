@@ -143,11 +143,15 @@ if (!roomId) {
 }
 
 /* ==========================================
-   4. الوصول للوسائط (الكاميرا والميكروفون)
+   4. الوصول للوسائط (تعديل الأبعاد لدعم الإطار الأكبر)
 ========================================== */
 navigator.mediaDevices.getUserMedia({ 
     audio: { echoCancellation: true, noiseSuppression: true }, 
-    video: { width: { ideal: 320, max: 480 }, height: { ideal: 240, max: 360 }, frameRate: { max: 15 } } 
+    video: { 
+        width: { ideal: 1280, max: 1920 }, 
+        height: { ideal: 720, max: 1080 }, 
+        frameRate: { ideal: 30 } 
+    } 
 })
 .then(stream => {
     localStream = stream;
@@ -274,6 +278,7 @@ function createPeerConnection(userId) {
     };
 }
 
+// تحسين معدل البث (Bitrate) لاستغلال الحجم الجديد للإطارات بدقة أعلى
 function applyAdaptiveBitrate(pc) {
     const senders = pc.getSenders();
     const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
@@ -282,8 +287,8 @@ function applyAdaptiveBitrate(pc) {
         const parameters = videoSender.getParameters();
         if (!parameters.encodings) parameters.encodings = [{}];
         
-        parameters.encodings[0].maxBitrate = 300000; 
-        parameters.encodings[0].scaleResolutionDownBy = 1.5; 
+        parameters.encodings[0].maxBitrate = 1500000; // رفع معدل البيانات لـ 1.5Mbps لوضوح عالي
+        parameters.encodings[0].scaleResolutionDownBy = 1.0; 
 
         videoSender.setParameters(parameters).catch(err => console.error("Bitrate Error:", err));
     }

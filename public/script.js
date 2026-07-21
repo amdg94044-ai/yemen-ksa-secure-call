@@ -8,16 +8,113 @@ const chatInput = document.getElementById('chat-input');
 const sendMessageBtn = document.getElementById('send-message');
 const chatMessages = document.getElementById('chat-messages');
 
-// تهيئة المؤثرات الصوتية
-const messageSound = new Audio("sounds/message.mp3");
-const ringtone = new Audio("sounds/ringtone.mp3");
-const callSound = new Audio("sounds/call.mp3");
-const hangupSound = new Audio("sounds/hangup.mp3");
-const micSound = new Audio("sounds/mic.mp3");
-const cameraSound = new Audio("sounds/camera.mp3");
+// تعريف ملفات الصوت مع المسارات المطلقة
+const messageSound = new Audio("/sounds/message.mp3");
+const ringtone = new Audio("/sounds/ringtone.mp3");
+const callSound = new Audio("/sounds/call.mp3");
+const hangupSound = new Audio("/sounds/hangup.mp3");
+const micSound = new Audio("/sounds/mic.mp3");
+const cameraSound = new Audio("/sounds/camera.mp3");
+
 ringtone.loop = true;
 
-// خوادم STUN و TURN
+/* ==========================================
+   2. محرك الأصوات وتهيئة Web Audio API
+========================================== */
+let audioCtx;
+let isAudioUnlocked = false;
+
+// دالة فك الحظر فور أي تفاعل للمستخدم
+function unlockAudioSystem() {
+    if (isAudioUnlocked) return;
+
+    // 1. تهيئة Web Audio Context
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+        audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    // 2. تهيئة كافة أسطوانات الـ Audio
+    const allSounds = [messageSound, ringtone, callSound, hangupSound, micSound, cameraSound];
+    allSounds.forEach(sound => {
+        sound.muted = true;
+        sound.play().then(() => {
+            sound.pause();
+            sound.currentTime = 0;
+            sound.muted = false;
+        }).catch(() => {
+            sound.muted = false;
+        });
+    });
+
+    isAudioUnlocked = true;
+    console.log("✅ تم تفعيل وتشغيل نظام الأصوات بنجاح");
+
+    window.removeEventListener('click', unlockAudioSystem);
+    window.removeEventListener('keydown', unlockAudioSystem);
+    window.removeEventListener('touchstart', unlockAudioSystem);
+}
+
+// الاستماع لأي تفاعل من المستخدم
+window.addEventListener('click', unlockAudioSystem);
+window.addEventListener('keydown', unlockAudioSystem);
+window.addEventListener('touchstart', unlockAudioSystem);
+
+// دالة تشغيل آمنة تجمع بين ملف MP3 ونغمة احتياطية
+function playAudioSafe(audioObj, fallbackFreq = 440) {
+    if (!audioObj) return;
+
+    audioObj.currentTime = 0;
+    audioObj.play().catch(err => {
+        console.warn(`⚠️ فشل تشغيل ${audioObj.src}، جاري استخدام النغمة البديلة:`, err.message);
+        playFallbackBeep(fallbackFreq);
+    });
+}
+
+// صوت احتياطي برمجياً (Beep) عند فقدان ملفات mp3 أو حظرها
+function playFallbackBeep(freq = 440) {
+    if (!audioCtx) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+        console.error("خطأ في النغمة البديلة:", e);
+    }
+}
+
+// دوال التحكم بالأصوات
+function playMessageSound() { playAudioSafe(messageSound, 800); }
+function playMicSound() { playAudioSafe(micSound, 600); }
+function playCameraSound() { playAudioSafe(cameraSound, 500); }
+
+function playCallSound() {
+    ringtone.pause();
+    ringtone.currentTime = 0;
+    playAudioSafe(callSound, 700);
+}
+
+function playRingtone() { playAudioSafe(ringtone, 440); }
+
+function playHangupSound() {
+    ringtone.pause();
+    ringtone.currentTime = 0;
+    playAudioSafe(hangupSound, 300);
+}
+
+/* ==========================================
+   3. إعدادات WebRTC والاتصال
+========================================== */
 const configuration = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -58,7 +155,6 @@ let localStream;
 let peerConnection;
 let iceCandidatesQueue = [];
 
-// استخراج أو إنشاء معرف الغرفة (Room ID)
 let roomId = new URLSearchParams(window.location.search).get('room');
 if (!roomId) {
     roomId = Math.random().toString(36).substring(2, 9);
@@ -66,7 +162,7 @@ if (!roomId) {
 }
 
 /* ==========================================
-   2. الوصول للوسائط (الكاميرا والميكروفون)
+   4. الوصول للوسائط (الكاميرا والميكروفون)
 ========================================== */
 navigator.mediaDevices.getUserMedia({ 
     audio: { echoCancellation: true, noiseSuppression: true }, 
@@ -99,7 +195,7 @@ navigator.mediaDevices.getUserMedia({
 });
 
 /* ==========================================
-   3. إدارة اتصال WebRTC وإشارات الاتصال
+   5. إشارات WebRTC
 ========================================== */
 socket.on('signal', async (data) => {
     if (!peerConnection) createPeerConnection(data.from);
@@ -172,7 +268,6 @@ function createPeerConnection(userId) {
     };
 
     peerConnection.oniceconnectionstatechange = () => {
-        console.log("ICE State:", peerConnection.iceConnectionState);
         switch (peerConnection.iceConnectionState) {
             case "checking":
                 statusMessage.innerText = "🔍 جاري البحث عن أفضل مسار...";
@@ -209,9 +304,7 @@ function applyAdaptiveBitrate(pc) {
         parameters.encodings[0].maxBitrate = 300000; 
         parameters.encodings[0].scaleResolutionDownBy = 1.5; 
 
-        videoSender.setParameters(parameters)
-            .then(() => console.log("✅ تم تفعيل Adaptive Bitrate"))
-            .catch(err => console.error("⚠️ فشل ضبط الـ Bitrate:", err));
+        videoSender.setParameters(parameters).catch(err => console.error(" Bitrate Error:", err));
     }
 }
 
@@ -227,7 +320,7 @@ socket.on("user-disconnected", () => {
 });
 
 /* ==========================================
-   4. أحداث التحكم والدردشة (UI Events)
+   6. أحداث التحكم والدردشة (UI Events)
 ========================================== */
 document.getElementById('toggle-mic').addEventListener('click', (e) => {
     if (!localStream) return;
@@ -276,7 +369,6 @@ document.getElementById("fullscreen-remote").addEventListener("click", () => {
     }
 });
 
-// التعامل مع إرسال الرسائل
 sendMessageBtn.addEventListener("click", sendMessage);
 chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendMessage();
@@ -303,13 +395,3 @@ function addMessage(sender, text) {
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
-
-/* ==========================================
-   5. دالة تشغيل الأصوات
-========================================== */
-function playMessageSound() { messageSound.currentTime = 0; messageSound.play().catch(() => {}); }
-function playCallSound() { ringtone.pause(); ringtone.currentTime = 0; callSound.currentTime = 0; callSound.play().catch(() => {}); }
-function playRingtone() { ringtone.currentTime = 0; ringtone.play().catch(() => {}); }
-function playHangupSound() { ringtone.pause(); ringtone.currentTime = 0; hangupSound.currentTime = 0; hangupSound.play().catch(() => {}); }
-function playMicSound() { micSound.currentTime = 0; micSound.play().catch(() => {}); }
-function playCameraSound() { cameraSound.currentTime = 0; cameraSound.play().catch(() => {}); }

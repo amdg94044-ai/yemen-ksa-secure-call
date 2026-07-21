@@ -8,13 +8,13 @@ const chatInput = document.getElementById('chat-input');
 const sendMessageBtn = document.getElementById('send-message');
 const chatMessages = document.getElementById('chat-messages');
 
-// تعريف ملفات الصوت مع المسارات المطلقة
-const messageSound = new Audio("/sounds/message.mp3");
-const ringtone = new Audio("/sounds/ringtone.mp3");
-const callSound = new Audio("/sounds/call.mp3");
-const hangupSound = new Audio("/sounds/hangup.mp3");
-const micSound = new Audio("/sounds/mic.mp3");
-const cameraSound = new Audio("/sounds/camera.mp3");
+// تعريف ملفات الصوت بأسماء الملفات المطابقة للصورة تماماً
+const messageSound = new Audio("/sounds/Message Notification.mp3");
+const ringtone = new Audio("/sounds/Phone Ring.wav");
+const callSound = new Audio("/sounds/Call Connected.wav");
+const hangupSound = new Audio("/sounds/Click.wav");
+const micSound = new Audio("/sounds/Click.wav");
+const cameraSound = new Audio("/sounds/Camera Click.wav");
 
 ringtone.loop = true;
 
@@ -28,7 +28,6 @@ let isAudioUnlocked = false;
 function unlockAudioSystem() {
     if (isAudioUnlocked) return;
 
-    // 1. تهيئة Web Audio Context
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (AudioContext) {
         audioCtx = new AudioContext();
@@ -37,7 +36,6 @@ function unlockAudioSystem() {
         }
     }
 
-    // 2. تهيئة كافة أسطوانات الـ Audio
     const allSounds = [messageSound, ringtone, callSound, hangupSound, micSound, cameraSound];
     allSounds.forEach(sound => {
         sound.muted = true;
@@ -51,65 +49,48 @@ function unlockAudioSystem() {
     });
 
     isAudioUnlocked = true;
-    console.log("✅ تم تفعيل وتشغيل نظام الأصوات بنجاح");
+    console.log("✅ تم تفعيل نظام الأصوات بنجاح");
 
     window.removeEventListener('click', unlockAudioSystem);
     window.removeEventListener('keydown', unlockAudioSystem);
     window.removeEventListener('touchstart', unlockAudioSystem);
 }
 
-// الاستماع لأي تفاعل من المستخدم
 window.addEventListener('click', unlockAudioSystem);
 window.addEventListener('keydown', unlockAudioSystem);
 window.addEventListener('touchstart', unlockAudioSystem);
 
-// دالة تشغيل آمنة تجمع بين ملف MP3 ونغمة احتياطية
-function playAudioSafe(audioObj, fallbackFreq = 440) {
+// دالة تشغيل آمنة وموحدة
+function playSound(audioObj) {
     if (!audioObj) return;
 
     audioObj.currentTime = 0;
-    audioObj.play().catch(err => {
-        console.warn(`⚠️ فشل تشغيل ${audioObj.src}، جاري استخدام النغمة البديلة:`, err.message);
-        playFallbackBeep(fallbackFreq);
-    });
-}
-
-// صوت احتياطي برمجياً (Beep) عند فقدان ملفات mp3 أو حظرها
-function playFallbackBeep(freq = 440) {
-    if (!audioCtx) return;
-    try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
-    } catch (e) {
-        console.error("خطأ في النغمة البديلة:", e);
+    const playPromise = audioObj.play();
+    
+    if (playPromise !== undefined) {
+        playPromise.catch(err => {
+            console.warn(`⚠️ تعذر تشغيل الصوت ${audioObj.src}:`, err.message);
+        });
     }
 }
 
 // دوال التحكم بالأصوات
-function playMessageSound() { playAudioSafe(messageSound, 800); }
-function playMicSound() { playAudioSafe(micSound, 600); }
-function playCameraSound() { playAudioSafe(cameraSound, 500); }
+function playMessageSound() { playSound(messageSound); }
+function playMicSound() { playSound(micSound); }
+function playCameraSound() { playSound(cameraSound); }
 
 function playCallSound() {
     ringtone.pause();
     ringtone.currentTime = 0;
-    playAudioSafe(callSound, 700);
+    playSound(callSound);
 }
 
-function playRingtone() { playAudioSafe(ringtone, 440); }
+function playRingtone() { playSound(ringtone); }
 
 function playHangupSound() {
     ringtone.pause();
     ringtone.currentTime = 0;
-    playAudioSafe(hangupSound, 300);
+    playSound(hangupSound);
 }
 
 /* ==========================================
@@ -304,7 +285,7 @@ function applyAdaptiveBitrate(pc) {
         parameters.encodings[0].maxBitrate = 300000; 
         parameters.encodings[0].scaleResolutionDownBy = 1.5; 
 
-        videoSender.setParameters(parameters).catch(err => console.error(" Bitrate Error:", err));
+        videoSender.setParameters(parameters).catch(err => console.error("Bitrate Error:", err));
     }
 }
 

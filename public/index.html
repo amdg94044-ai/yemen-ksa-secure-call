@@ -2,123 +2,150 @@
 <html lang="ar" dir="rtl">
 
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>اتصال فيديو آمن</title>
 
     <link rel="stylesheet" href="style.css">
 
     <script src="/socket.io/socket.io.js" defer></script>
+
     <script src="script.js" defer></script>
+
 </head>
 
 <body>
 
 <header class="header">
 
-    <h1>📹 اتصال فيديو آمن</h1>
+    <div class="header-content">
 
-    <p>تصميم أمين النزيلي</p>
+        <h1>📹 اتصال فيديو آمن</h1>
+
+        <p>تصميم وتطوير أمين النزيلي</p>
+
+    </div>
 
 </header>
 
 
-<div class="status">
+<main class="main-container">
 
-    <span id="status">
-        جاري تجهيز الكاميرا...
-    </span>
+    <div class="status-bar">
 
-</div>
-
-
-<main class="container">
-
-    <div class="video-card">
-
-        <h3>📷 أنت</h3>
-
-        <video
-            id="local-video"
-            autoplay
-            playsinline
-            muted>
-        </video>
+        <span id="status">
+            جاري تجهيز الكاميرا...
+        </span>
 
     </div>
 
 
-    <div class="video-card">
+    <section class="video-grid">
 
-        <h3>👤 الطرف الآخر</h3>
+        <div class="video-card">
 
-        <video
-            id="remote-video"
-            autoplay
-            playsinline>
-        </video>
+            <div class="video-title">
+                📷 أنت
+            </div>
 
-    </div>
+            <video
+                id="local-video"
+                autoplay
+                muted
+                playsinline>
+            </video>
 
-</main>
-
-
-<section class="controls">
-
-    <button id="micBtn">
-        🎤 كتم الميكروفون
-    </button>
-
-    <button id="cameraBtn">
-        📷 إيقاف الكاميرا
-    </button>
-
-    <button id="screenBtn">
-        🖥️ مشاركة الشاشة
-    </button>
-
-    <button id="fullBtn">
-        ⛶ ملء الشاشة
-    </button>
-
-    <button id="endBtn" class="danger">
-        📞 إنهاء المكالمة
-    </button>
-
-</section>
+        </div>
 
 
-<section class="chat">
+        <div class="video-card">
 
-    <h2>💬 المحادثة</h2>
+            <div class="video-title">
+                👤 الطرف الآخر
+            </div>
 
-    <div id="messages"></div>
+            <video
+                id="remote-video"
+                autoplay
+                playsinline>
+            </video>
 
-    <div class="send-box">
+        </div>
 
-        <input
-            type="text"
-            id="messageInput"
-            placeholder="اكتب رسالتك">
+    </section>
 
-        <button id="sendBtn">
-            إرسال
+
+    <section class="controls">
+
+        <button id="micBtn">
+            🎤 كتم الميكروفون
         </button>
 
-    </div>
+        <button id="cameraBtn">
+            📷 إيقاف الكاميرا
+        </button>
 
-</section>
+        <button id="screenBtn">
+            🖥️ مشاركة الشاشة
+        </button>
+
+        <button id="fullBtn">
+            ⛶ تكبير الشاشة
+        </button>
+
+        <button id="endBtn" class="danger">
+            📞 إنهاء المكالمة
+        </button>
+
+    </section>
+
+
+    <section class="chat-box">
+
+        <h2>
+            💬 المحادثة
+        </h2>
+
+        <div id="messages">
+
+        </div>
+
+        <div class="chat-input">
+
+            <input
+                id="messageInput"
+                type="text"
+                placeholder="اكتب رسالتك هنا">
+
+            <button id="sendBtn">
+
+                إرسال
+
+            </button>
+
+        </div>
+
+    </section>
+
+</main>
 
 
 <footer>
 
     <p>
+
         © 2026 جميع الحقوق محفوظة
+
     </p>
 
-    <strong>
+    <p>
+
         تصميم أمين النزيلي
-    </strong>
+
+    </p>
 
 </footer>
 

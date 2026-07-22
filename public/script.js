@@ -132,7 +132,7 @@ let peerConnection;
 let iceCandidatesQueue = [];
 let currentFacingMode = 'user';
 
-llet roomId = new URLSearchParams(window.location.search).get('room');
+let roomId = new URLSearchParams(window.location.search).get('room');
 if (!roomId) {
     roomId = Math.floor(1000 + Math.random() * 9000).toString();
     window.history.replaceState({}, '', `?room=${roomId}`);

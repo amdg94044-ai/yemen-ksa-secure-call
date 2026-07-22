@@ -8,7 +8,7 @@ const chatInput = document.getElementById('chat-input');
 const sendMessageBtn = document.getElementById('send-message');
 const chatMessages = document.getElementById('chat-messages');
 
-// تعريف ملفات الصوت بأسماء الملفات المطابقة للصورة تماماً
+// تعريف ملفات الصوت
 const messageSound = new Audio("/sounds/Message Notification.mp3");
 const ringtone = new Audio("/sounds/Phone Ring.wav");
 const callSound = new Audio("/sounds/Call Connected.wav");
@@ -24,7 +24,6 @@ ringtone.loop = true;
 let audioCtx;
 let isAudioUnlocked = false;
 
-// دالة فك الحظر فور أي تفاعل للمستخدم
 function unlockAudioSystem() {
     if (isAudioUnlocked) return;
 
@@ -60,13 +59,10 @@ window.addEventListener('click', unlockAudioSystem);
 window.addEventListener('keydown', unlockAudioSystem);
 window.addEventListener('touchstart', unlockAudioSystem);
 
-// دالة تشغيل آمنة وموحدة
 function playSound(audioObj) {
     if (!audioObj) return;
-
     audioObj.currentTime = 0;
     const playPromise = audioObj.play();
-    
     if (playPromise !== undefined) {
         playPromise.catch(err => {
             console.warn(`⚠️ تعذر تشغيل الصوت ${audioObj.src}:`, err.message);
@@ -74,7 +70,6 @@ function playSound(audioObj) {
     }
 }
 
-// دوال التحكم بالأصوات
 function playMessageSound() { playSound(messageSound); }
 function playMicSound() { playSound(micSound); }
 function playCameraSound() { playSound(cameraSound); }
@@ -135,6 +130,7 @@ const configuration = {
 let localStream;
 let peerConnection;
 let iceCandidatesQueue = [];
+let currentFacingMode = 'user';
 
 let roomId = new URLSearchParams(window.location.search).get('room');
 if (!roomId) {
@@ -143,41 +139,70 @@ if (!roomId) {
 }
 
 /* ==========================================
-   4. الوصول للوسائط (تعديل الأبعاد لدعم الإطار الأكبر)
+   4. الوصول للوسائط ومعالجة حظر الأذونات
 ========================================== */
-navigator.mediaDevices.getUserMedia({ 
-    audio: { echoCancellation: true, noiseSuppression: true }, 
-    video: { 
-        width: { ideal: 1280, max: 1920 }, 
-        height: { ideal: 720, max: 1080 }, 
-        frameRate: { ideal: 30 } 
-    } 
-})
-.then(stream => {
-    localStream = stream;
-    document.getElementById('local-video').srcObject = stream;
-    statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
-
-    if (socket.connected) {
-        socket.emit('join-room', roomId, socket.id);
-    } else {
-        socket.on('connect', () => {
-            socket.emit('join-room', roomId, socket.id);
+async function initLocalStream() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { echoCancellation: true, noiseSuppression: true }, 
+            video: { 
+                facingMode: currentFacingMode,
+                width: { ideal: 1280, max: 1920 }, 
+                height: { ideal: 720, max: 1080 }, 
+                frameRate: { ideal: 30 } 
+            } 
         });
-    }
 
-    socket.off("user-connected");
-    socket.on("user-connected", (userId) => {
-        if (peerConnection) return;
-        statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
-        playCallSound();
-        initiateCall(userId);
-    });
-})
-.catch(error => {
-    console.error('خطأ في الوصول للكاميرا/الميكروفون:', error);
-    statusMessage.innerText = "فشل الوصول للكاميرا أو المايكروفون. يرجى إعطاء الصلاحية.";
-});
+        localStream = stream;
+        document.getElementById('local-video').srcObject = stream;
+        statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
+
+        if (socket.connected) {
+            socket.emit('join-room', roomId, socket.id);
+        } else {
+            socket.on('connect', () => {
+                socket.emit('join-room', roomId, socket.id);
+            });
+        }
+
+        socket.off("user-connected");
+        socket.on("user-connected", (userId) => {
+            if (peerConnection) return;
+            statusMessage.innerText = "جاري الاتصال بالطرف الآخر...";
+            playCallSound();
+            initiateCall(userId);
+        });
+
+    } catch (error) {
+        console.error('خطأ في الوصول للكاميرا/الميكروفون:', error);
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            showPermissionInstruction();
+        } else {
+            statusMessage.innerText = "⚠️ فشل الوصول للكاميرا أو المايكروفون: " + error.message;
+        }
+    }
+}
+
+function showPermissionInstruction() {
+    if (statusMessage) {
+        statusMessage.style.backgroundColor = "#dc3545";
+        statusMessage.style.color = "#ffffff";
+        statusMessage.style.padding = "15px";
+        statusMessage.style.lineHeight = "1.6";
+        statusMessage.innerHTML = `
+            <strong>⚠️ الكاميرا والميكروفون محظوران!</strong><br>
+            لقد قمت برفض الأذونات، والمتصفح يمنع طلبها تلقائياً.<br>
+            <hr style="margin: 8px 0; border-color: rgba(255,255,255,0.3);">
+            <strong>كيف تفعّلها؟</strong><br>
+            1. اضغط على رمز 🔒 <strong>القفل</strong> في أقصى أعلى شريط العنوان.<br>
+            2. اضغط على <strong>إعدادات المواقع (Site settings)</strong> أو <strong>الأذونات</strong>.<br>
+            3. غيّر الكاميرا والميكروفون إلى <strong>سماح (Allow)</strong>.<br>
+            4. أعد تحديث الصفحة 🔄.
+        `;
+    }
+}
+
+initLocalStream();
 
 /* ==========================================
    5. إشارات WebRTC
@@ -278,7 +303,6 @@ function createPeerConnection(userId) {
     };
 }
 
-// تحسين معدل البث (Bitrate) لاستغلال الحجم الجديد للإطارات بدقة أعلى
 function applyAdaptiveBitrate(pc) {
     const senders = pc.getSenders();
     const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
@@ -287,7 +311,7 @@ function applyAdaptiveBitrate(pc) {
         const parameters = videoSender.getParameters();
         if (!parameters.encodings) parameters.encodings = [{}];
         
-        parameters.encodings[0].maxBitrate = 1500000; // رفع معدل البيانات لـ 1.5Mbps لوضوح عالي
+        parameters.encodings[0].maxBitrate = 1500000;
         parameters.encodings[0].scaleResolutionDownBy = 1.0; 
 
         videoSender.setParameters(parameters).catch(err => console.error("Bitrate Error:", err));
@@ -306,7 +330,7 @@ socket.on("user-disconnected", () => {
 });
 
 /* ==========================================
-   6. أحداث التحكم والدردشة (UI Events)
+   6. أحداث التحكم والدردشة وتعديل الكاميرا
 ========================================== */
 document.getElementById('toggle-mic').addEventListener('click', (e) => {
     if (!localStream) return;
@@ -381,42 +405,37 @@ function addMessage(sender, text) {
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
-// متغير لتحديد الكاميرا الحالية ('user' تعني الأمامية، 'environment' تعني الخلفية)
-let currentFacingMode = 'user';
 
+/* ==========================================
+   7. ميزة تبديل الكاميرا (Front / Rear)
+========================================== */
 const switchCamBtn = document.getElementById('switch-camera');
 
 if (switchCamBtn) {
     switchCamBtn.addEventListener('click', async () => {
         if (!localStream) return;
 
-        // التبديل بين الأمامية والخلفية
         currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
 
         try {
-            // 1. إيقاف مسار الفيديو الحالي
             const oldVideoTrack = localStream.getVideoTracks()[0];
             if (oldVideoTrack) {
                 oldVideoTrack.stop();
             }
 
-            // 2. طلب مسار فيديو جديد بالكاميرا المختارة
             const newStream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: currentFacingMode }
             });
 
             const newVideoTrack = newStream.getVideoTracks()[0];
 
-            // 3. استبدال المسار القديم في البث المحلي
             localStream.removeTrack(oldVideoTrack);
             localStream.addTrack(newVideoTrack);
 
-            // 4. تحديث العرض في الشاشة المحلية مع تعديل وضع المرآة (المرآة فقط للكاميرا الأمامية)
             const localVideo = document.getElementById('local-video');
             localVideo.srcObject = localStream;
             localVideo.style.transform = (currentFacingMode === 'user') ? 'scaleX(-1)' : 'none';
 
-            // 5. إرسال المسار الجديد للطرف الآخر إذا كان الاتصال قائماً
             if (peerConnection) {
                 const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) {
@@ -426,7 +445,6 @@ if (switchCamBtn) {
         } catch (error) {
             console.error("خطأ عند تبديل الكاميرا:", error);
             alert("تعذر تبديل الكاميرا، قد يكون جهازك لا يمتلك كاميرا ثانية أو المتصفح يمنع الإذن.");
-            // إعادة الوضع للمقدار السابق في حال الفشل
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
         }
     });

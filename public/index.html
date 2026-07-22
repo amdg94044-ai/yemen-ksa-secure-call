@@ -172,7 +172,7 @@
         video {
     width: 100%;
     max-width: 450px;
-    aspect-ratio: 6 / 1; /* جعل الإطار أطول عمودياً ليناسب تصوير الجوال */
+    aspect-ratio: 5 / 1; /* جعل الإطار أطول عمودياً ليناسب تصوير الجوال */
     object-fit: cover;   /* يملأ الإطار بدون حواف سوداء وبدون زوم شديد */
     border-radius: 18px;
     border: 3px solid #FFD700;
@@ -231,6 +231,7 @@
         .btn-mute:hover{
             background:#777;
         }
+        
     </style>
     <script src="/socket.io/socket.io.js" defer></script>
     <script src="script.js" defer></script>
@@ -262,6 +263,9 @@
 
     <button id="fullscreen-remote" class="btn">🖥️ تكبير الشاشة</button>
     <button id="end-call" class="btn">📞 إنهاء المكالمة</button>
+    <button id="request-perm-btn" class="btn" style="background-color: #ff9800; display: none;">
+    🎥 إعادة طلب إذن الكاميرا
+</button>
 </div>
 
     <div id="chat-container">

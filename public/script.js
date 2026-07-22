@@ -449,3 +449,39 @@ if (switchCamBtn) {
         }
     });
 }
+const permBtn = document.getElementById('request-perm-btn');
+
+// دالة محاولة تشغيل الكاميرا عند الضغط على الزر
+if (permBtn) {
+    permBtn.addEventListener('click', async () => {
+        try {
+            // محاولة طلب الكاميرا مجدداً
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            
+            // إذا نجح الطلب (تم إعطاء الإذن)
+            document.getElementById('local-video').srcObject = localStream;
+            permBtn.style.display = 'none'; // إخفاء الزر بعد النجاح
+            statusMessage.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+            statusMessage.innerText = `في الغرفة: ${roomId} (انتظار الطرف الآخر...)`;
+            
+        } catch (error) {
+            // إذا كان المتصفح ما زال يحظر الطلب
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                alert("⚠️ المتصفح يمنع الكاميرا!\n\nيرجى الضغط على رمز القفل 🔒 في أقصى أعلى الشاشة بجانب رابط الموقع، ثم اختيار (إعدادات المواقع) وتفعيل الكاميرا إلى (سماح).");
+            }
+        }
+    });
+}
+
+// إظهار الزر تلقائياً عند فشل الأذونات
+function showPermissionInstruction() {
+    if (permBtn) permBtn.style.display = 'inline-block'; // إظهار الزر للمستخدم
+    
+    if (statusMessage) {
+        statusMessage.style.backgroundColor = "#dc3545";
+        statusMessage.innerHTML = `
+            <strong>⚠️ الكاميرا محظورة في المتصفح!</strong><br>
+            اضغط على زر <strong>(إعادة طلب الإذن 🎥)</strong> بالأسفل، أو افحص رمز 🔒 القفل بأعلى الشاشة.
+        `;
+    }
+}

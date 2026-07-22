@@ -276,7 +276,34 @@
             <button id="send-message" class="btn">إرسال</button>
         </div>
     </div>
+<!-- عنصر الزر -->
+<button id="copyBtn" onclick="copyPageUrl()">📋 نسخ الرابط</button>
 
+<script>
+function copyPageUrl() {
+  // الحصول على رابط الصفحة الحالية
+  const currentUrl = window.location.href;
+
+  // استخدام API النسخ الحديث في المتصفحات
+  navigator.clipboard.writeText(currentUrl).then(() => {
+    const btn = document.getElementById('copyBtn');
+    
+    // تغيير النص مؤقتاً لتأكيد النسخ
+    btn.innerText = '✅ تم النسخ!';
+    btn.style.backgroundColor = '#4CAF50';
+    btn.style.color = '#ffffff';
+
+    // إعادة النص والشكل الأصلي بعد ثانيتين
+    setTimeout(() => {
+      btn.innerText = '📋 نسخ الرابط';
+      btn.style.backgroundColor = '';
+      btn.style.color = '';
+    }, 2000);
+  }).catch(err => {
+    console.error('فشل نسخ الرابط: ', err);
+  });
+}
+</script>
     <footer class="footer">
         <hr>
         <p>🇾🇪 تصميم وتطوير: <strong>أمين النزيلي</strong></p>

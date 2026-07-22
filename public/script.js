@@ -381,3 +381,53 @@ function addMessage(sender, text) {
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+// متغير لتحديد الكاميرا الحالية ('user' تعني الأمامية، 'environment' تعني الخلفية)
+let currentFacingMode = 'user';
+
+const switchCamBtn = document.getElementById('switch-camera');
+
+if (switchCamBtn) {
+    switchCamBtn.addEventListener('click', async () => {
+        if (!localStream) return;
+
+        // التبديل بين الأمامية والخلفية
+        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+
+        try {
+            // 1. إيقاف مسار الفيديو الحالي
+            const oldVideoTrack = localStream.getVideoTracks()[0];
+            if (oldVideoTrack) {
+                oldVideoTrack.stop();
+            }
+
+            // 2. طلب مسار فيديو جديد بالكاميرا المختارة
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: currentFacingMode }
+            });
+
+            const newVideoTrack = newStream.getVideoTracks()[0];
+
+            // 3. استبدال المسار القديم في البث المحلي
+            localStream.removeTrack(oldVideoTrack);
+            localStream.addTrack(newVideoTrack);
+
+            // 4. تحديث العرض في الشاشة المحلية مع تعديل وضع المرآة (المرآة فقط للكاميرا الأمامية)
+            const localVideo = document.getElementById('local-video');
+            localVideo.srcObject = localStream;
+            localVideo.style.transform = (currentFacingMode === 'user') ? 'scaleX(-1)' : 'none';
+
+            // 5. إرسال المسار الجديد للطرف الآخر إذا كان الاتصال قائماً
+            if (peerConnection) {
+                const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    await sender.replaceTrack(newVideoTrack);
+                }
+            }
+        } catch (error) {
+            console.error("خطأ عند تبديل الكاميرا:", error);
+            alert("تعذر تبديل الكاميرا، قد يكون جهازك لا يمتلك كاميرا ثانية أو المتصفح يمنع الإذن.");
+            // إعادة الوضع للمقدار السابق في حال الفشل
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+        }
+    });
+}

@@ -485,3 +485,49 @@ function showPermissionInstruction() {
         `;
     }
 }
+/* ==========================================
+   8. معالجة خروج التطبيق إلى الخلفية والعودة
+========================================== */
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        console.log("🔄 أُعيد فتح التطبيق، جاري تنشيط الكاميرا والاتصال...");
+
+        // 1. التأكد من أن مسار الكاميرا المحلي ما زال يعمل
+        if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            
+            // إذا توقف المسار أو تعطل بسبب الخلفية، نعيد تشغيل الكاميرا
+            if (!videoTrack || videoTrack.readyState === 'ended' || !videoTrack.enabled) {
+                try {
+                    const newStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: currentFacingMode }
+                    });
+                    const newVideoTrack = newStream.getVideoTracks()[0];
+
+                    // استبدال المسار القديم في Bounded Stream
+                    localStream.removeTrack(videoTrack);
+                    localStream.addTrack(newVideoTrack);
+
+                    document.getElementById('local-video').srcObject = localStream;
+
+                    // تحديث المسار المبعوث للطرف الآخر عبر WebRTC
+                    if (peerConnection) {
+                        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            await sender.replaceTrack(newVideoTrack);
+                        }
+                    }
+                } catch (err) {
+                    console.error("فشل إعادة تشغيل الكاميرا عند العودة:", err);
+                }
+            }
+        }
+
+        // 2. إعادة مفاوضة الاتصال إذا انقطع أثناء التواجد بالخلفية
+        if (peerConnection && (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed')) {
+            if (typeof peerConnection.restartIce === 'function') {
+                peerConnection.restartIce();
+            }
+        }
+    }
+});

@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const server = require('http').createServer(app);
 
@@ -11,6 +12,11 @@ const io = require('socket.io')(server, {
 
 // تشغيل ملفات الموقع العادية (Static Files)
 app.use(express.static('public'));
+
+// 📜 مسار سياسة الخصوصية
+app.get('/privacy-policy', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
 
 io.on('connection', (socket) => {
     console.log("✅ مستخدم متصل:", socket.id);

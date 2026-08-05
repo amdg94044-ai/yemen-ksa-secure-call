@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const helmet = require('helmet');
 const app = express();
 const server = require('http').createServer(app);
 
@@ -9,6 +10,8 @@ const io = require('socket.io')(server, {
         methods: ["GET", "POST"]
     }
 });
+
+app.use(helmet());
 
 // تشغيل ملفات الموقع العادية (Static Files)
 app.use(express.static('public'));
